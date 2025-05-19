@@ -1,6 +1,6 @@
 # Flanterm Testbench
 
-A toy terminal emulator written using SDL and [Flanterm](https://github.com/mintsuki/flanterm).
+A toy terminal emulator written using SDL and [Flanterm](https://codeberg.org/mintsuki/flanterm).
 
 The goal of this project is to test the capabilities and improve Flanterm in real world use cases. The goal of this project
 is NOT to build a fully capable terminal emulator or a viable alternative to already existing ones.

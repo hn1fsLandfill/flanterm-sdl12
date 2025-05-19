@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    ctx->callback = terminal_callback;
+    flanterm_set_callback(ctx, terminal_callback);
 
     flush_event = SDL_RegisterEvents(1);
 
@@ -420,7 +420,7 @@ int main(int argc, char **argv) {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    ctx->deinit(ctx, (void *)free);
+    flanterm_deinit(ctx, (void *)free);
 }
 
 #endif

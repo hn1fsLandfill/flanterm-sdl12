@@ -1,4 +1,4 @@
-AC_INIT([Flanterm Testbench], [m4_esyscmd([./version.sh])], [https://github.com/mintsuki/flanterm-testbench/issues], [flanterm-testbench])
+AC_INIT([Flanterm Testbench], [m4_esyscmd([./version.sh])], [https://codeberg.org/mintsuki/flanterm-testbench/issues], [flanterm-testbench])
 
 AC_PREREQ([2.69])
 

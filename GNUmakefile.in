@@ -44,6 +44,7 @@ override CFLAGS += \
 # Internal C preprocessor flags that should not be changed by the user.
 override CPPFLAGS := \
     -I'$(call SHESCAPE,$(SRCDIR))/src' \
+    -I'$(call SHESCAPE,$(SRCDIR))/flanterm/src' \
     $(PKGCONF_CPPFLAGS) \
     $(CPPFLAGS) \
     -MMD \
@@ -55,7 +56,7 @@ override LIBS += \
 
 # Use "find" to glob all *.c files in the tree and obtain the
 # object and header dependency file names.
-override CFILES := $(shell cd '$(call SHESCAPE,$(SRCDIR))/src' && find -L * -type f -name '*.c' | LC_ALL=C sort)
+override CFILES := $(shell cd '$(call SHESCAPE,$(SRCDIR))' && find -L src flanterm/src -type f -name '*.c' | LC_ALL=C sort)
 override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o))
 override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d))
 
@@ -72,7 +73,7 @@ $(OUTPUT): GNUmakefile $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJ) $(LIBS) -o $@
 
 # Compilation rules for *.c files.
-obj/%.c.o: $(call MKESCAPE,$(SRCDIR))/src/%.c GNUmakefile
+obj/%.c.o: $(call MKESCAPE,$(SRCDIR))/%.c GNUmakefile
 	$(MKDIR_P) "$$(dirname $@)"
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c '$(call SHESCAPE,$<)' -o $@
 
@@ -89,7 +90,7 @@ distclean: clean
 # Remove ALL generated files.
 .PHONY: maintainer-clean
 maintainer-clean: distclean
-	cd '$(call SHESCAPE,$(SRCDIR))' && rm -rf configure build-aux *'~' autom4te.cache aclocal.m4 src/flanterm
+	cd '$(call SHESCAPE,$(SRCDIR))' && rm -rf configure build-aux *'~' autom4te.cache aclocal.m4 flanterm
 
 # Create a release tarball.
 .PHONY: dist
@@ -103,8 +104,8 @@ dist:
 	rm -rf "$(DIST_OUTPUT)"/.gitignore
 	rm -rf "$(DIST_OUTPUT)"/.github
 	rm -rf "$(DIST_OUTPUT)"/autom4te.cache
-	rm -rf "$(DIST_OUTPUT)"/src/flanterm/.git
-	rm -rf "$(DIST_OUTPUT)"/src/flanterm/.gitignore
+	rm -rf "$(DIST_OUTPUT)"/flanterm/.git
+	rm -rf "$(DIST_OUTPUT)"/flanterm/.gitignore
 	echo "$(PACKAGE_VERSION)" >"$(DIST_OUTPUT)"/version
 	tar -cf "$(DIST_OUTPUT).tar" "$(DIST_OUTPUT)"
 	gzip < "$(DIST_OUTPUT).tar" > "$(DIST_OUTPUT).tar.gz"

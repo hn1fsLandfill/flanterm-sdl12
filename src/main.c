@@ -16,7 +16,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <errno.h>
-#include <flanterm/backends/fb.h>
+#include <flanterm_backends/fb.h>
 
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16

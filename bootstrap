@@ -71,9 +71,9 @@ download_by_hash() {
 
 if ! test -f version; then
     clone_repo_commit \
-        https://codeberg.org/mintsuki/flanterm.git \
+        https://github.com/mintsuki/flanterm.git \
         flanterm \
-        4cacad16218ba85d7d7f7566b2b3de46574c7d60
+        5282531639c15b60b2f7276d10855a4e27fa5e1d
 fi
 
 for auxfile in $AUXFILES; do

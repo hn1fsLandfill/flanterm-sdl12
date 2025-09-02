@@ -71,7 +71,7 @@ download_by_hash() {
 
 if ! test -f version; then
     clone_repo_commit \
-        https://github.com/mintsuki/flanterm.git \
+        https://codeberg.org/Mintsuki/Flanterm.git \
         flanterm \
         5282531639c15b60b2f7276d10855a4e27fa5e1d
 fi

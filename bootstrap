@@ -73,7 +73,7 @@ if ! test -f version; then
     clone_repo_commit \
         https://codeberg.org/Mintsuki/Flanterm.git \
         flanterm \
-        5282531639c15b60b2f7276d10855a4e27fa5e1d
+        55d228ff16234513b0df0dd12de8bc58160fc196
 fi
 
 for auxfile in $AUXFILES; do

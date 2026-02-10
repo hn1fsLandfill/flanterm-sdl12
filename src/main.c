@@ -49,13 +49,13 @@ static void terminal_callback(struct flanterm_context *ctx, uint64_t type, uint6
 
     switch (type) {
         case FLANTERM_CB_DEC:
-            printf("TERM_CB_DEC");
+            printf("FLANTERM_CB_DEC");
             goto values;
         case FLANTERM_CB_MODE:
-            printf("TERM_CB_MODE");
+            printf("FLANTERM_CB_MODE");
             goto values;
         case FLANTERM_CB_LINUX:
-            printf("TERM_CB_LINUX");
+            printf("FLANTERM_CB_LINUX");
             values:
                 printf("(count=%lu, values={", arg1);
                 for (uint64_t i = 0; i < arg1; i++) {
@@ -64,14 +64,14 @@ static void terminal_callback(struct flanterm_context *ctx, uint64_t type, uint6
                 printf("}, final='%c')\n", (int)arg3);
                 break;
         case FLANTERM_CB_BELL:
-            printf("TERM_CB_BELL()\n");
+            printf("FLANTERM_CB_BELL()\n");
             bell_start = SDL_GetTicks64();
             break;
         case FLANTERM_CB_PRIVATE_ID: printf("TERM_CB_PRIVATE_ID()\n"); break;
         case FLANTERM_CB_STATUS_REPORT: printf("TERM_CB_STATUS_REPORT()\n"); break;
         case FLANTERM_CB_POS_REPORT: printf("TERM_CB_POS_REPORT(x=%lu, y=%lu)\n", arg1, arg2); break;
         case FLANTERM_CB_KBD_LEDS:
-            printf("TERM_CB_KBD_LEDS(state=");
+            printf("FLANTERM_CB_KBD_LEDS(state=");
             switch (arg1) {
                 case 0: printf("CLEAR_ALL"); break;
                 case 1: printf("SET_SCRLK"); break;
@@ -80,6 +80,15 @@ static void terminal_callback(struct flanterm_context *ctx, uint64_t type, uint6
             }
             printf(")\n");
             break;
+        case FLANTERM_CB_OSC: {
+            const char *buf = (const char *)(uintptr_t)arg3;
+            printf("FLANTERM_CB_OSC(num=%lu, payload=\"", arg1);
+            for (uint64_t i = 0; i < arg2; i++) {
+                putchar(buf[i]);
+            }
+            printf("\")\n");
+            break;
+        }
         default:
             printf("Unknown callback type %lu: %lx, %lx, %lx\n", type, arg1, arg2, arg3);
             break;
@@ -359,7 +368,8 @@ int main(int argc, char **argv) {
         framebuffer, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH * 4,
         8, 16, 8, 8, 8, 0,
         NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0,
+        FLANTERM_FB_ROTATE_0
     );
 
     if (!ctx) {
@@ -428,55 +438,14 @@ int main(int argc, char **argv) {
 #ifdef FUZZER
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    static SDL_Renderer *renderer;
     static void *framebuffer;
-    static SDL_Texture *framebuffer_texture;
     static bool inited = false;
     if (inited == false) {
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-            return -1;
-        }
-
-        if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0")) {
-            return -1;
-        }
-
-        SDL_Window *window = SDL_CreateWindow(
-            "Flanterm Testbench",
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            WINDOW_WIDTH, WINDOW_HEIGHT,
-            SDL_WINDOW_HIDDEN
-        );
-
-        if (!window) {
-            return -1;
-        }
-
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-        if (!renderer) {
-            return -1;
-        }
-
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
         framebuffer = malloc(WINDOW_WIDTH * WINDOW_HEIGHT * 4);
 
         if (!framebuffer) {
             return -1;
         }
-
-        framebuffer_texture = SDL_CreateTexture(
-            renderer,
-            SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-            WINDOW_WIDTH, WINDOW_HEIGHT
-        );
-
-        if (!framebuffer_texture) {
-            return -1;
-        }
-
-        SDL_ShowWindow(window);
 
         inited = true;
     }
@@ -486,7 +455,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         framebuffer, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH * 4,
         8, 16, 8, 8, 8, 0,
         NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 1, 1, 0
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 1, 1, 0,
+        FLANTERM_FB_ROTATE_0
     );
 
     if (!ctx) {
@@ -495,12 +465,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     flanterm_write(ctx, data, size);
 
-    SDL_UpdateTexture(framebuffer_texture, NULL, framebuffer, WINDOW_WIDTH * 4);
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, framebuffer_texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-
-    ctx->deinit(ctx, NULL);
+    flanterm_deinit(ctx, NULL);
 
     return 0;  // Values other than 0 and -1 are reserved for future use.
 }

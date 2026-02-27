@@ -16,7 +16,9 @@
 #include <termios.h>
 #include <unistd.h>
 #include <errno.h>
+#define FLANTERM_IN_FLANTERM
 #include <flanterm_backends/fb.h>
+#include <flanterm.h>
 
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
@@ -240,6 +242,50 @@ static void handle_key(SDL_KeyboardEvent *ev) {
     }
 }
 
+const char *list = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-+";
+const int list_size = 64;
+int ind = 0;
+
+#define LEFT 6
+#define RIGHT 7
+
+#define ENTER 0
+#define SPACE 1
+#define ACCEPT 3
+
+static void handle_joy(SDL_JoyButtonEvent *ev) {
+    printf("pressed %d\n", ev->button);
+    
+    if(ev->button == ENTER) {
+        write(pty_master, "\n", 1);
+        return;
+    } else if(ev->button == SPACE) {
+        write(pty_master, " ", 1);
+        return;
+    } else if(ev->button == ACCEPT) {
+        write(pty_master, (const char[]){list[ind], 0}, 1);
+        return;
+    }
+
+    size_t x, y = 0;
+    ctx->get_cursor_pos(ctx, &x, &y);
+    ctx->set_cursor_pos(ctx, 0, 0);
+    if(ev->button == LEFT)
+        ind--;
+    else if(ev->button == RIGHT)
+        ind++;
+    
+    if(ind < 0)
+        ind = list_size-1;
+    else if(ind > list_size-1)
+        ind = 0;
+
+    printf("%d\n", ind);
+
+    flanterm_write(ctx, (const char[]){list[ind], 0}, 1);
+    ctx->set_cursor_pos(ctx, x, y);
+}
+
 static void *read_from_pty(void *arg) {
     (void)arg;
 
@@ -316,10 +362,14 @@ int main(int argc, char **argv) {
         execlp("/bin/sh", "/bin/sh", "-l", NULL);
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_JOYSTICK) < 0) {
         printf("SDL could not be initialized: %s\n", SDL_GetError());
         return 1;
     }
+
+    SDL_Joystick *joy;
+    joy = SDL_JoystickOpen(0);
+    printf("Name: %s\n", SDL_JoystickName(0));
 
     SDL_Surface *window = SDL_SetVideoMode(1280,720,32, SDL_SWSURFACE|SDL_ANYFORMAT);
 
@@ -362,6 +412,9 @@ int main(int argc, char **argv) {
                     break;
                 case SDL_KEYDOWN:
                     handle_key(&ev.key);
+                    break;
+                case SDL_JOYBUTTONDOWN:
+                    handle_joy(&ev.jbutton);
                     break;
             }
         }

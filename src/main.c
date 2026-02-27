@@ -383,7 +383,7 @@ int main(int argc, char **argv) {
         window->pixels, window->w, window->h, window->pitch,
         8, 16, 8, 8, 8, 0,
         NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 48,
         FLANTERM_FB_ROTATE_0
     );
 

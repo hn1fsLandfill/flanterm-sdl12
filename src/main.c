@@ -242,8 +242,8 @@ static void handle_key(SDL_KeyboardEvent *ev) {
     }
 }
 
-const char *list = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-+";
-const int list_size = 64;
+const char *list = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-+./,!@#$%&*()_~`[];:\\{}\"|";
+const int list_size = 88;
 int ind = 0;
 
 #define LEFT 6
@@ -252,6 +252,7 @@ int ind = 0;
 #define ENTER 0
 #define SPACE 1
 #define ACCEPT 3
+#define BACKSPACE 4
 
 static void handle_joy(SDL_JoyButtonEvent *ev) {
     printf("pressed %d\n", ev->button);
@@ -264,6 +265,9 @@ static void handle_joy(SDL_JoyButtonEvent *ev) {
         return;
     } else if(ev->button == ACCEPT) {
         write(pty_master, (const char[]){list[ind], 0}, 1);
+        return;
+    } else if(ev->button == BACKSPACE) {
+        write(pty_master, "\b", 1);
         return;
     }
 

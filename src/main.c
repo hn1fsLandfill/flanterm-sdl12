@@ -242,6 +242,8 @@ static void handle_key(SDL_KeyboardEvent *ev) {
     }
 }
 
+char is_shell = false;
+
 const char *list = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-+./,!@#$%&*()_~`[];:\\{}\"|";
 const int list_size = 88;
 int ind = 0;
@@ -327,10 +329,13 @@ void fakeprint(char *str) {
     flanterm_write(ctx, str, strlen(str));
 }
 
-int main(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
 
+int pid = 0;
+
+int init_shell() {
+    is_shell = 1;
+    ctx->clear(ctx, true);
+    fakeprint("Executing shell\n");
     struct winsize win_size = {
         .ws_col = DEFAULT_COLS,
         .ws_row = DEFAULT_ROWS,
@@ -348,7 +353,7 @@ int main(int argc, char **argv) {
     unlockpt(pty_master);
     grantpt(pty_master);
 
-    int pid = fork();
+    pid = fork();
 
     if (pid == 0) {
         int pty_slave = open(ptsname(pty_master), O_RDWR | O_NOCTTY);
@@ -365,6 +370,85 @@ int main(int argc, char **argv) {
 
         execlp("/bin/sh", "/bin/sh", "-l", NULL);
     }
+
+    pthread_t pty_thread;
+
+    if (pthread_create(&pty_thread, NULL, read_from_pty, NULL) != 0) {
+        printf("Could not create PTY reader thread\n");
+        return 1;
+    }
+}
+
+void kill_shell() {
+    close(pty_master);
+
+    kill(pid, SIGTERM);
+    kill(pid, SIGKILL);
+}
+
+#define MENU_SIZE 4
+const char *exes[] = {
+    "./icube2",
+    "./dosbox",
+    "./retroarch.sh",
+    "sh",
+    0
+};
+
+int menu_ptr = 0;
+
+void render_menu() {
+    int p = 0;
+    ctx->clear(ctx, true);
+    fakeprint("Available programs\n");
+    while(exes[p] != 0) {
+        ctx->set_cursor_pos(ctx, 0, p+1);
+        if(p == menu_ptr) fakeprint("* ");
+        else fakeprint("  ");
+        fakeprint(exes[p]);
+        fakeprint("\n");
+        p++;
+    }
+}
+
+void execute(char *progname) {
+    ctx->clear(ctx, true);
+    fakeprint("Executing ");
+    fakeprint(progname);
+
+    pid = fork();
+    if(pid == 0) {
+        char *const funny[] = {"sh", "-c", progname, 0};
+        execvp("sh", funny);
+        exit(1);
+    }
+    else exit(0);
+}
+
+static void handle_joy_menu(SDL_JoyButtonEvent *ev) {
+    if(ev->button == LEFT)
+        menu_ptr--;
+    else if(ev->button == RIGHT)
+        menu_ptr++;
+    else if(ev->button == ACCEPT) {
+        if(menu_ptr == 3)
+            init_shell();
+        else
+            execute(exes[menu_ptr]);
+        return;
+    }
+
+    if(menu_ptr > MENU_SIZE-1)
+        menu_ptr = 0;
+    else if(menu_ptr < 0)
+        menu_ptr = MENU_SIZE-1;
+    
+    render_menu();
+}
+
+int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
 
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_JOYSTICK) < 0) {
         printf("SDL could not be initialized: %s\n", SDL_GetError());
@@ -397,14 +481,8 @@ int main(int argc, char **argv) {
     }
 
     flanterm_set_callback(ctx, terminal_callback);
-    fakeprint("\n\n\t\tHello from the nugget!\n");
-
-    pthread_t pty_thread;
-
-    if (pthread_create(&pty_thread, NULL, read_from_pty, NULL) != 0) {
-        printf("Could not create PTY reader thread\n");
-        return 1;
-    }
+    //fakeprint("\n\n\t\tHello from the nugget!\n");
+    render_menu();
 
     for (; is_running;) {
         SDL_Event ev;
@@ -415,10 +493,11 @@ int main(int argc, char **argv) {
                     is_running = false;
                     break;
                 case SDL_KEYDOWN:
-                    handle_key(&ev.key);
+                    if(is_shell) handle_key(&ev.key);
                     break;
                 case SDL_JOYBUTTONDOWN:
-                    handle_joy(&ev.jbutton);
+                    if(is_shell) handle_joy(&ev.jbutton);
+                    else handle_joy_menu(&ev.jbutton);
                     break;
             }
         }
@@ -433,10 +512,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    close(pty_master);
-
-    kill(pid, SIGTERM);
-    kill(pid, SIGKILL);
+    if(is_shell) kill_shell();
 
     SDL_FreeSurface(window);
     SDL_Quit();

@@ -21,8 +21,8 @@
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
 
-#define DEFAULT_COLS (1366/9)
-#define DEFAULT_ROWS (768/16)
+#define DEFAULT_COLS (1280/9)
+#define DEFAULT_ROWS (720/16)
 
 #define WINDOW_WIDTH (DEFAULT_COLS * (FONT_WIDTH + 1) + 4)
 #define WINDOW_HEIGHT (DEFAULT_ROWS * FONT_HEIGHT)
@@ -65,7 +65,7 @@ static void terminal_callback(struct flanterm_context *ctx, uint64_t type, uint6
                 break;
         case FLANTERM_CB_BELL:
             printf("FLANTERM_CB_BELL()\n");
-            bell_start = SDL_GetTicks64();
+            bell_start = SDL_GetTicks();
             break;
         case FLANTERM_CB_PRIVATE_ID: printf("TERM_CB_PRIVATE_ID()\n"); break;
         case FLANTERM_CB_STATUS_REPORT: printf("TERM_CB_STATUS_REPORT()\n"); break;
@@ -214,16 +214,16 @@ static void handle_key(SDL_KeyboardEvent *ev) {
         NO_MODS(SDLK_PAGEUP, PAGEUP_ESC)
         NO_MODS(SDLK_PAGEDOWN, PAGEDOWN_ESC)
 
-        NO_MODS(SDLK_KP_8, UP_ESC)
-        NO_MODS(SDLK_KP_2, DOWN_ESC)
-        NO_MODS(SDLK_KP_6, RIGHT_ESC)
-        NO_MODS(SDLK_KP_4, LEFT_ESC)
-        NO_MODS(SDLK_KP_0, INSERT_ESC)
+        NO_MODS(SDLK_KP8, UP_ESC)
+        NO_MODS(SDLK_KP2, DOWN_ESC)
+        NO_MODS(SDLK_KP6, RIGHT_ESC)
+        NO_MODS(SDLK_KP4, LEFT_ESC)
+        NO_MODS(SDLK_KP0, INSERT_ESC)
         NO_MODS(SDLK_KP_PERIOD, DELETE_ESC)
-        NO_MODS(SDLK_KP_7, HOME_ESC)
-        NO_MODS(SDLK_KP_1, END_ESC)
-        NO_MODS(SDLK_KP_9, PAGEUP_ESC)
-        NO_MODS(SDLK_KP_3, PAGEDOWN_ESC)
+        NO_MODS(SDLK_KP7, HOME_ESC)
+        NO_MODS(SDLK_KP1, END_ESC)
+        NO_MODS(SDLK_KP9, PAGEUP_ESC)
+        NO_MODS(SDLK_KP3, PAGEDOWN_ESC)
 
         NO_MODS(SDLK_F1, "\x1bOP")
         NO_MODS(SDLK_F2, "\x1bOQ")
@@ -261,7 +261,7 @@ static void *read_from_pty(void *arg) {
 
         flanterm_write(ctx, buffer, read_bytes);
         SDL_Event queue_peep;
-        if (!SDL_PeepEvents(&queue_peep, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT)) {
+        if (!SDL_PeepEvents(&queue_peep, 1, SDL_PEEKEVENT, 0xffffffff)) {
             /* If there are no events on the queue already, add one to force a redraw. */
             SDL_Event ping;
             ping.type = flush_event;
@@ -271,6 +271,10 @@ static void *read_from_pty(void *arg) {
 
     is_running = false;
     return NULL;
+}
+
+void fakeprint(char *str) {
+    flanterm_write(ctx, str, strlen(str));
 }
 
 int main(int argc, char **argv) {
@@ -309,7 +313,7 @@ int main(int argc, char **argv) {
         dup2(pty_slave, 2);
         close(pty_slave);
 
-        execlp("/bin/bash", "/bin/bash", "-l", NULL);
+        execlp("/bin/sh", "/bin/sh", "-l", NULL);
     }
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -317,55 +321,16 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0")) {
-        printf("SDL could not disable compositor bypass!\n");
-        return 1;
-    }
-
-    SDL_Window *window = SDL_CreateWindow(
-        "Flanterm Testbench",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH, WINDOW_HEIGHT,
-        SDL_WINDOW_HIDDEN
-    );
+    SDL_Surface *window = SDL_SetVideoMode(1280,720,32, SDL_SWSURFACE|SDL_ANYFORMAT);
 
     if (!window) {
         printf("SDL could not create window: %s\n", SDL_GetError());
         return 1;
     }
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-    if (!renderer) {
-        printf("SDL could not create renderer: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-    void *framebuffer = malloc(WINDOW_WIDTH * WINDOW_HEIGHT * 4);
-
-    if (!framebuffer) {
-        printf("Could not allocate framebuffer\n");
-        return 1;
-    }
-
-    memset(framebuffer, 0, WINDOW_WIDTH * WINDOW_HEIGHT * 4);
-
-    SDL_Texture *framebuffer_texture = SDL_CreateTexture(
-        renderer,
-        SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-        WINDOW_WIDTH, WINDOW_HEIGHT
-    );
-
-    if (!framebuffer_texture) {
-        printf("SDL could not create renderer: %s\n", SDL_GetError());
-        return 1;
-    }
-
     ctx = flanterm_fb_init(
         (void *)malloc, (void *)free,
-        framebuffer, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH * 4,
+        window->pixels, window->w, window->h, window->pitch,
         8, 16, 8, 8, 8, 0,
         NULL,
         NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0,
@@ -378,8 +343,7 @@ int main(int argc, char **argv) {
     }
 
     flanterm_set_callback(ctx, terminal_callback);
-
-    flush_event = SDL_RegisterEvents(1);
+    fakeprint("\n\n\t\tHello from the nugget!\n");
 
     pthread_t pty_thread;
 
@@ -387,8 +351,6 @@ int main(int argc, char **argv) {
         printf("Could not create PTY reader thread\n");
         return 1;
     }
-
-    SDL_ShowWindow(window);
 
     for (; is_running;) {
         SDL_Event ev;
@@ -404,21 +366,14 @@ int main(int argc, char **argv) {
             }
         }
 
-        SDL_UpdateTexture(framebuffer_texture, NULL, framebuffer, WINDOW_WIDTH * 4);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, framebuffer_texture, NULL, NULL);
+        SDL_UpdateRect(window, 0, 0, window->w, window->h);
 
         Uint64 bell_length = 180;
-        if (bell_start > 0 && SDL_GetTicks64() < bell_start + bell_length) {
-            Uint64 elapsed = MIN(bell_length, SDL_GetTicks64() - bell_start);
+        if (bell_start > 0 && SDL_GetTicks() < bell_start + bell_length) {
+            Uint64 elapsed = MIN(bell_length, SDL_GetTicks() - bell_start);
             Uint64 remaining = bell_length - elapsed;
             Uint64 alpha = ((remaining * 1000) / bell_length) / 10;
-
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
-            SDL_RenderFillRect(renderer, NULL);
         }
-
-        SDL_RenderPresent(renderer);
     }
 
     close(pty_master);
@@ -426,48 +381,10 @@ int main(int argc, char **argv) {
     kill(pid, SIGTERM);
     kill(pid, SIGKILL);
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    SDL_FreeSurface(window);
     SDL_Quit();
 
     flanterm_deinit(ctx, (void *)free);
-}
-
-#endif
-
-#ifdef FUZZER
-
-int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    static void *framebuffer;
-    static bool inited = false;
-    if (inited == false) {
-        framebuffer = malloc(WINDOW_WIDTH * WINDOW_HEIGHT * 4);
-
-        if (!framebuffer) {
-            return -1;
-        }
-
-        inited = true;
-    }
-
-    struct flanterm_context *ctx = flanterm_fb_init(
-        NULL, NULL,
-        framebuffer, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH * 4,
-        8, 16, 8, 8, 8, 0,
-        NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 1, 1, 0,
-        FLANTERM_FB_ROTATE_0
-    );
-
-    if (!ctx) {
-        return -1;
-    }
-
-    flanterm_write(ctx, data, size);
-
-    flanterm_deinit(ctx, NULL);
-
-    return 0;  // Values other than 0 and -1 are reserved for future use.
 }
 
 #endif
